@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <string>
 #include <map>
+#include <pwd.h>
+#include <grp.h>
 #define bufferSize 256
 
 using namespace std;
@@ -31,12 +33,18 @@ int main(int argc, char* argv[]){
 		while((dirp = readdir(dp)) != NULL){
 			// only DIR && number can go ahead
 			if(typeCheck(dirp) == "DIR" && regex_search(dirp->d_name,procReg)){
-				// Handle command
 				string procPath = defPath + dirp->d_name ;
 				string procPathComm = procPath + "/comm";
+				string procPathCWD = procPath + "/cwd";
+				string procPathROOT = procPath + "/root";
+				string procPathEXE = procPath + "/exe";
+				string procPathMAP = procPath + "/maps";
+				string procPathFD = procPath + "/fd";
+
 				char buffer[bufferSize]={};
 				int procFd =0;
-
+				
+				// Handle COMMAND
 				if((procFd = open(procPathComm.c_str(),O_RDONLY)) != -1){
 					int length = read(procFd,buffer,sizeof(buffer));
 					outputMap["COMMAND"] = extractInput(buffer,length);
@@ -46,26 +54,68 @@ int main(int argc, char* argv[]){
 					// error occur
 					cout << "open("+procPath+",O_RDONLY) FAIL\n";
 				}
+
 				// Handle PID
 				outputMap["PID"] = dirp->d_name ;
+				/***************************** CWD ***********************************/
+				// Sequence = cwd -> root -> exe -> (maps) -> fd
+				// Handle FD (/proc/{pid}/fd)
+				outputMap["FD"] = "cwd";
 
-				// Handle USER
+				struct stat statBuffer;
+				if( stat(procPathCWD.c_str(),&statBuffer) != -1 ){
+					// Handle USER
+					struct passwd* pw = getpwuid(statBuffer.st_uid);
+					outputMap["USER"] = pw->pw_name;
 
-				// Handle FD
+					// Handle TYPE
+					switch(statBuffer.st_mode & S_IFMT){
+						case S_IFDIR: outputMap["TYPE"] = "DIR"; break;
+						case S_IFREG: outputMap["TYPE"] = "REG"; break;
+						case S_IFCHR: outputMap["TYPE"] = "CHR"; break;
+						case S_IFIFO: outputMap["TYPE"] = "FIFO"; break; 
+						case S_IFSOCK: outputMap["TYPE"] = "SOCK"; break;
+						default: outputMap["TYPE"] = "unknown"; break;
+					}
+					// Handle NODE
+					outputMap["NODE"] = to_string(statBuffer.st_ino);
+					
+					// Handle NAME (readlink)
+					char linkName[bufferSize];
+					int linkNameLength =readlink(procPathCWD.c_str(),linkName,bufferSize);
+					outputMap["NAME"] = extractInput(linkName,linkNameLength);
 
-				// Handle TYPE
-
-				// Handle NODE
-
-				// Handle NAME
+				}else{
+					// Error -> maybe permission denied
+					switch(errno){
+						case EACCES:
+							outputMap["USER"] = "?"; // UNDO
+							outputMap["FD"] = "cwd";
+							outputMap["TYPE"] = "unknown";
+							outputMap["NODE"] = "";
+							outputMap["NAME"] = procPathCWD + " (Permission denied)";
+							break;
+					}
+				}
 				traverseMap(outputMap);				
+				/**********************************************************************/
+
+				/***************************** ROOT ***********************************/
+				// ...
+				/**********************************************************************/
+
+				/***************************** EXE ***********************************/
+				// ...
+				/**********************************************************************/
+
+				/***************************** MAPS ***********************************/
+				// ...
+				/**********************************************************************/
+
+				/***************************** fd ***********************************/
+				// ...
+				/**********************************************************************/
 			}
-			/*
-			cout << "inode number: " << dirp->d_ino <<endl;
-			cout << "type:         " << typeCheck(dirp) <<endl;
-			cout << "name:         " << dirp->d_name <<endl ;
-			cout << endl;
-			*/
 		}
 		
 		if(closedir(dp) ==-1){
@@ -123,11 +173,14 @@ string extractInput(char buffer[bufferSize],int readCount){
    	}
    	return result; 
 }
+
 void traverseMap(map<string,string> mMap){
-	map<string,string>::iterator iter = mMap.begin();
-	while(iter != mMap.end()){
-		cout << iter->second <<"\t\t";
-		iter ++;
-	}
+	cout << mMap["COMMAND"] <<"\t\t";
+	cout << mMap["PID"] <<"\t\t";
+	cout << mMap["USER"] <<"\t\t";
+	cout << mMap["FD"] <<"\t\t";
+	cout << mMap["TYPE"] <<"\t\t";
+	cout << mMap["NODE"] <<"\t\t";
+	cout << mMap["NAME"] <<"\t\t";
 	cout << endl;
 } 

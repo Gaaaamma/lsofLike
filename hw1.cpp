@@ -106,9 +106,50 @@ int main(int argc, char* argv[]){
 				}
 				traverseMap(outputMap);				
 				/**********************************************************************/
-
 				/***************************** ROOT ***********************************/
-				// ...
+				outputMap["FD"] = "rtd";
+				if( stat(procPathROOT.c_str(),&statBuffer) != -1 ){
+					// Handle USER
+					struct passwd* pw = getpwuid(statBuffer.st_uid);
+					outputMap["USER"] = pw->pw_name;
+
+					// Handle TYPE
+					switch(statBuffer.st_mode & S_IFMT){
+						case S_IFDIR: outputMap["TYPE"] = "DIR"; break;
+						case S_IFREG: outputMap["TYPE"] = "REG"; break;
+						case S_IFCHR: outputMap["TYPE"] = "CHR"; break;
+						case S_IFIFO: outputMap["TYPE"] = "FIFO"; break; 
+						case S_IFSOCK: outputMap["TYPE"] = "SOCK"; break;
+						default: outputMap["TYPE"] = "unknown"; break;
+					}
+					// Handle NODE
+					outputMap["NODE"] = to_string(statBuffer.st_ino);
+					
+					// Handle NAME (readlink)
+					char linkName[bufferSize];
+					int linkNameLength =readlink(procPathROOT.c_str(),linkName,bufferSize);
+					outputMap["NAME"] = extractInput(linkName,linkNameLength);
+
+				}else{
+					// Error -> maybe permission denied
+					struct stat statBuffer;
+					switch(errno){
+						case EACCES:
+							// Get previous dir user
+							if( stat(procPath.c_str(),&statBuffer) != -1 ){
+								struct passwd* pw = getpwuid(statBuffer.st_uid);
+								outputMap["USER"] = pw->pw_name;
+							}else{
+								outputMap["USER"] = "root";
+							}
+							outputMap["FD"] = "rtd";
+							outputMap["TYPE"] = "unknown";
+							outputMap["NODE"] = "";
+							outputMap["NAME"] = procPathROOT + " (Permission denied)";
+							break;
+					}
+				}
+				traverseMap(outputMap);	
 				/**********************************************************************/
 
 				/***************************** EXE ***********************************/

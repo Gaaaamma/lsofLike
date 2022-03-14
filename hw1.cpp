@@ -87,9 +87,16 @@ int main(int argc, char* argv[]){
 
 				}else{
 					// Error -> maybe permission denied
+					struct stat statBuffer;
 					switch(errno){
 						case EACCES:
-							outputMap["USER"] = "?"; // UNDO
+							// Get previous dir user
+							if( stat(procPath.c_str(),&statBuffer) != -1 ){
+								struct passwd* pw = getpwuid(statBuffer.st_uid);
+								outputMap["USER"] = pw->pw_name;
+							}else{
+								outputMap["USER"] = "root";
+							}
 							outputMap["FD"] = "cwd";
 							outputMap["TYPE"] = "unknown";
 							outputMap["NODE"] = "";

@@ -263,9 +263,107 @@ int main(int argc, char* argv[]){
                     }
                 }
 				/**********************************************************************/
-
 				/***************************** fd ***********************************/
-				// ...
+				DIR* dp_fd;
+				struct dirent* dirp_fd;
+				if((dp_fd = opendir(procPathFD.c_str())) != NULL){
+					regex  fdReg("^[0-9]+$");	
+					while((dirp_fd = readdir(dp_fd)) != NULL){
+						// Each fd in /proc/{pid}/fd
+						// only number can go ahead
+						if(regex_search(dirp_fd->d_name,fdReg)){
+							// Handling USER (stat)
+                        	struct stat statBuffer;
+				        	if( stat( (procPathFD+"/"+dirp_fd->d_name).c_str(),&statBuffer) != -1 ){
+					        	// Handle USER
+					        	struct passwd* pw = getpwuid(statBuffer.st_uid);
+					        	outputMap["USER"] = pw->pw_name;
+
+					        	// Handle TYPE
+					        	switch(statBuffer.st_mode & S_IFMT){
+						        	case S_IFDIR: outputMap["TYPE"] = "DIR"; break;
+						        	case S_IFREG: outputMap["TYPE"] = "REG"; break;
+						        	case S_IFCHR: outputMap["TYPE"] = "CHR"; break;
+						        	case S_IFIFO: outputMap["TYPE"] = "FIFO"; break; 
+						        	case S_IFSOCK: outputMap["TYPE"] = "SOCK"; break;
+						        	default: outputMap["TYPE"] = "unknown"; break;
+				        		}
+					        	// Handle NODE
+					        	outputMap["NODE"] = to_string(statBuffer.st_ino);
+					
+					        	// Handle NAME (readlink)
+					        	char linkName[bufferSize];
+					        	int linkNameLength =readlink( (procPathFD+"/"+dirp_fd->d_name).c_str(),linkName,bufferSize);
+					        	outputMap["NAME"] = extractInput(linkName,linkNameLength);
+
+								// Handling FD
+								string fdInfoPath = procPath + "/fdinfo/" + dirp_fd->d_name;
+								int fdInfoFd =0;
+								if((fdInfoFd = open(fdInfoPath.c_str(),O_RDONLY)) != -1 ){
+									char buf[bufferSize];
+                    				string temp ="";
+
+                    				while( read(fdInfoFd,buf,bufferSize) !=0 ){
+                        				temp += string(buf);
+                        				memset(buf, 0 ,sizeof(buf));
+                    				}
+
+                    				stringstream ss;
+                    				ss << temp;
+                    				string aWord ="";
+									bool findFlags =false;
+                    				while(ss >> aWord){
+										if(findFlags == true){
+											// aWord is flag now
+											break;
+										}else{
+                        					if(aWord.find("flags") != string::npos){
+												findFlags = true;
+											}
+										}
+                    				} 
+                    				ss.str("");
+                    				ss.clear();
+									
+									// Mask judge aWord -> Append to outputMap["FD"]
+
+									outputMap["FD"] = dirp_fd->d_name + string("k"); //UNDO
+								}
+								close(fdInfoFd);
+                            	traverseMap(outputMap);
+				        	}
+						}
+					}
+					if(closedir(dp_fd) == -1){
+						cout << "closeDir error\n";
+					}
+
+				}else{
+					// Can't access
+					struct stat statBuffer;
+					switch(errno){
+						case EACCES:
+							// Get previous dir user
+							if( stat(procPathFD.c_str(),&statBuffer) != -1 ){
+								struct passwd* pw = getpwuid(statBuffer.st_uid);
+								outputMap["USER"] = pw->pw_name;
+							}else{
+								outputMap["USER"] = "root";
+							}
+							outputMap["FD"] = "NOFD";
+							outputMap["TYPE"] = "";
+							outputMap["NODE"] = "";
+							outputMap["NAME"] = procPathFD + " (Permission denied)";
+							traverseMap(outputMap);
+							break;
+						case ENOENT:
+							cout << "Directory does not exist\n";
+							break;
+						case ENOTDIR:
+							cout << procPathFD <<" is not a directory\n";
+							break;
+					}
+				}
 				/**********************************************************************/
 			}
 		}
@@ -285,6 +383,7 @@ int main(int argc, char* argv[]){
 				break;
 			case ENOTDIR:
 				cout << argv[1] <<" is not a directory\n";
+				break;
 		}
 	}
 	return 0;

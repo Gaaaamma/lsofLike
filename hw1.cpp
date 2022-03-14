@@ -10,12 +10,14 @@
 #include <map>
 #include <pwd.h>
 #include <grp.h>
+#include <sstream>
 #define bufferSize 256
 
 using namespace std;
 
 string typeCheck(dirent* dirp);
 string extractInput(char buffer[bufferSize],int readCount);
+vector<string> extractMEM(vector<string> mVec);
 void traverseMap(map<string,string> mMap); 
 
 int main(int argc, char* argv[]){
@@ -197,7 +199,68 @@ int main(int argc, char* argv[]){
 				traverseMap(outputMap);	
 				/**********************************************************************/
 				/***************************** MAPS ***********************************/
-				// ...
+                int mapfd =0;
+				if( (mapfd = open(procPathMAP.c_str(),O_RDONLY)) != -1 ){
+                    char buf[bufferSize];
+                    string temp ="";
+
+                    while( read(mapfd,buf,bufferSize) !=0 ){
+                        temp += string(buf);
+                        memset(buf, 0 ,sizeof(buf));
+                    }
+
+                    vector<string> mVec;
+                    stringstream ss;
+                    ss << temp;
+                    string aWord ="";
+                    while(ss >> aWord){
+                        mVec.push_back(aWord);
+                    } 
+                    ss.str("");
+                    ss.clear();
+
+                    // Handling meme result
+                    vector<string> memResult = extractMEM(mVec);
+                    
+                    // Handle stat
+				    if( stat(procPathMAP.c_str(),&statBuffer) != -1 ){
+				    	// Handle USER
+				    	struct passwd* pw = getpwuid(statBuffer.st_uid);
+				    	outputMap["USER"] = pw->pw_name;
+
+					    // Handle TYPE
+					    switch(statBuffer.st_mode & S_IFMT){
+						    case S_IFDIR: outputMap["TYPE"] = "DIR"; break;
+						    case S_IFREG: outputMap["TYPE"] = "REG"; break;
+						    case S_IFCHR: outputMap["TYPE"] = "CHR"; break;
+						    case S_IFIFO: outputMap["TYPE"] = "FIFO"; break; 
+						    case S_IFSOCK: outputMap["TYPE"] = "SOCK"; break;
+						    default: outputMap["TYPE"] = "unknown"; break;
+					    }
+					    // Handle NODE && Handle Name
+                        // Then output for loop
+                        for(int i=0;i<memResult.size();){
+                            if(memResult[i+1].find("deleted") != string ::npos){
+                                outputMap["FD"] = "DEL";
+                                // Handle memResult[i+1] UNDO
+                                
+                            }else{
+                                outputMap["FD"] = "mem";
+                            }
+                            outputMap["NODE"] = memResult[i];
+                            outputMap["NAME"] = memResult[i+1];
+                            i = i+2;
+                            traverseMap(outputMap);
+                        }
+				    }
+
+                }else{
+                    switch(errno){
+                        // Permission denied -> Just Ignore
+                        case EACCES: break;
+                        default: cout << "MEM other error\n"; break;
+                    }
+                }
 				/**********************************************************************/
 
 				/***************************** fd ***********************************/
@@ -262,6 +325,34 @@ string extractInput(char buffer[bufferSize],int readCount){
    	return result; 
 }
 
+vector<string> extractMEM(vector<string> mVec){
+    vector<string> result;
+    regex  timeReg("^[0-9]{2}:[0-9][0-9e]$");	
+
+    int index=0;
+    // find index of [heap]
+    for(int i=index;i<mVec.size();i++){
+        if(mVec[i].find("[heap]") != string::npos){
+            index =i+1;
+            break;
+        }
+    }
+
+    string preINode = "0";
+    for(int i=index;i<mVec.size();i++){
+        if( regex_search(mVec[i],timeReg) ){
+            // Find xx:xx
+            if( ( (i+2) < mVec.size() ) && (mVec[i+1] != "0") && (mVec[i+1] != preINode ) ){
+                // new Inode && new fileName
+                preINode = mVec[i+1];
+                result.push_back(mVec[i+1]);
+                result.push_back(mVec[i+2]);
+            }
+        }
+    }
+    return result;
+}
+
 void traverseMap(map<string,string> mMap){
 	cout << mMap["COMMAND"] <<"\t\t";
 	cout << mMap["PID"] <<"\t\t";
@@ -272,3 +363,4 @@ void traverseMap(map<string,string> mMap){
 	cout << mMap["NAME"] <<"\t\t";
 	cout << endl;
 } 
+

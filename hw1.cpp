@@ -242,8 +242,9 @@ int main(int argc, char* argv[]){
                         for(int i=0;i<memResult.size();){
                             if(memResult[i+1].find("deleted") != string ::npos){
                                 outputMap["FD"] = "DEL";
-                                // Handle memResult[i+1] UNDO
-                                
+                                // Handle memResult[i+1] 
+                                memResult[i+1] = memResult[i+1].substr(0,memResult[i+1].find("(deleted)"));
+
                             }else{
                                 outputMap["FD"] = "mem";
                             }
@@ -346,7 +347,14 @@ vector<string> extractMEM(vector<string> mVec){
                 // new Inode && new fileName
                 preINode = mVec[i+1];
                 result.push_back(mVec[i+1]);
-                result.push_back(mVec[i+2]);
+
+                // check (deleted)
+                if((i+3) < mVec.size() && mVec[i+3].find("deleted") != string::npos){
+                    string temp = mVec[i+2] + mVec[i+3];
+                    result.push_back(temp);
+                }else{
+                    result.push_back(mVec[i+2]);
+                }
             }
         }
     }

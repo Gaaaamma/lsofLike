@@ -22,7 +22,7 @@ bool regJudge(map<string,string> mMap);
 void traverseMap(map<string,string> mMap); 
 
 string gb_COMMAND =".";
-string gb_TYPE = ".";
+string gb_TYPE = "";
 string gb_NAME = ".";
 
 int main(int argc, char* argv[]){

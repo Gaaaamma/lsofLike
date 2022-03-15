@@ -1,4 +1,4 @@
-cc= g++ -std=c++11 -Wall
+cc= g++ -std=c++11 
 filename = hw1.cpp
 outputFile = hw1
 

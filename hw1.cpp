@@ -18,7 +18,12 @@ using namespace std;
 string typeCheck(dirent* dirp);
 string extractInput(char buffer[bufferSize],int readCount);
 vector<string> extractMEM(vector<string> mVec);
+bool regJudge(map<string,string> mMap);
 void traverseMap(map<string,string> mMap); 
+
+string gb_COMMAND =".";
+string gb_TYPE = ".";
+string gb_NAME = ".";
 
 int main(int argc, char* argv[]){
 	// regular expression handling
@@ -29,6 +34,20 @@ int main(int argc, char* argv[]){
 
 	}else{
 		// Valid argc
+		for(int i=1;i<argc;i++){
+			string tempArg = argv[i];
+			if(tempArg.find("-c") != string::npos && (i+1) < argc){
+				gb_COMMAND = argv[i+1];
+			}else if(tempArg.find("-t") != string::npos && (i+1) < argc){
+				gb_TYPE = argv[i+1];
+				if(gb_TYPE != "REG" && gb_TYPE != "CHR" && gb_TYPE != "DIR" && gb_TYPE != "FIFO" && gb_TYPE !="SOCK" && gb_TYPE !="unknown"){
+					cout << "Invalid TYPE option.\n";
+					return 1;
+				}
+			}else if(tempArg.find("-f") != string::npos && (i+1) < argc){
+				gb_NAME = argv[i+1];
+			}
+		}
 	}
 
 	string defPath = "/proc/";
@@ -507,13 +526,20 @@ vector<string> extractMEM(vector<string> mVec){
 }
 
 void traverseMap(map<string,string> mMap){
-	cout << mMap["COMMAND"] <<"\t\t";
-	cout << mMap["PID"] <<"\t\t";
-	cout << mMap["USER"] <<"\t\t";
-	cout << mMap["FD"] <<"\t\t";
-	cout << mMap["TYPE"] <<"\t\t";
-	cout << mMap["NODE"] <<"\t\t";
-	cout << mMap["NAME"] <<"\t\t";
-	cout << endl;
+	regex  commandReg(gb_COMMAND);	
+	regex  typeReg(gb_TYPE);	
+	regex  nameReg(gb_NAME);	
+
+	// COMMAND -> TYPE -> NAME
+	if(regex_search(mMap["COMMAND"],commandReg) && regex_search(mMap["TYPE"],typeReg) && regex_search(mMap["NAME"],nameReg)){
+		cout << mMap["COMMAND"] <<"\t\t";
+		cout << mMap["PID"] <<"\t\t";
+		cout << mMap["USER"] <<"\t\t";
+		cout << mMap["FD"] <<"\t\t";
+		cout << mMap["TYPE"] <<"\t\t";
+		cout << mMap["NODE"] <<"\t\t";
+		cout << mMap["NAME"] <<"\t\t";
+		cout << endl;
+	}
 } 
 

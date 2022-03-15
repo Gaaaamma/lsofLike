@@ -342,8 +342,22 @@ int main(int argc, char* argv[]){
                     				ss.clear();
 									
 									// Mask judge aWord -> Append to outputMap["FD"]
+									int iFlag = stoi(aWord);
+									iFlag = iFlag & O_ACCMODE ;
+									string mFlag ="";
 
-									outputMap["FD"] = dirp_fd->d_name + aWord; //UNDO
+									switch(iFlag){
+										case O_RDONLY:
+											mFlag = "r";
+											break;
+										case O_WRONLY:
+											mFlag = "w";
+											break;
+										case O_RDWR:
+											mFlag = "u";
+											break;
+									}									
+									outputMap["FD"] = dirp_fd->d_name + mFlag; 
 								}else{
 									// maybe die
 									continue;

@@ -21,6 +21,16 @@ vector<string> extractMEM(vector<string> mVec);
 void traverseMap(map<string,string> mMap); 
 
 int main(int argc, char* argv[]){
+	// regular expression handling
+	if( argc%2 !=1 ){
+		// Invalid
+		cout << "Invalid option.\n";
+		return 1;
+
+	}else{
+		// Valid argc
+	}
+
 	string defPath = "/proc/";
 
 	DIR* dp;
@@ -221,7 +231,8 @@ int main(int argc, char* argv[]){
                         temp += string(buf);
                         memset(buf, 0 ,sizeof(buf));
                     }
-
+					close(mapfd);
+					
                     vector<string> mVec;
                     stringstream ss;
                     ss << temp;
@@ -349,7 +360,7 @@ int main(int argc, char* argv[]){
 									switch(iFlag){
 										case O_RDONLY:
 											mFlag = "r";
-											break;
+											break ;
 										case O_WRONLY:
 											mFlag = "w";
 											break;

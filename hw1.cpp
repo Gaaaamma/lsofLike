@@ -33,7 +33,7 @@ int main(int argc, char* argv[]){
 	if((dp = opendir(defPath.c_str())) != NULL){
 		// Got something
 		while((dirp = readdir(dp)) != NULL){
-			// only DIR && number can go ahead
+			// only DIR && number can go ahead ex: /proc/1 , /proc/2 , /proc/3 ...
 			if(typeCheck(dirp) == "DIR" && regex_search(dirp->d_name,procReg)){
 				string procPath = defPath + dirp->d_name ;
 				string procPathComm = procPath + "/comm";
@@ -54,7 +54,8 @@ int main(int argc, char* argv[]){
 
 				}else{
 					// error occur
-					cout << "open("+procPath+",O_RDONLY) FAIL\n";
+					// /proc/{pid} may die -> Escape this turn
+					continue;
 				}
 
 				// Handle PID
@@ -104,6 +105,10 @@ int main(int argc, char* argv[]){
 							outputMap["NODE"] = "";
 							outputMap["NAME"] = procPathCWD + " (Permission denied)";
 							break;
+						default:
+							// /proc/{pid} may die
+							continue;
+							break;
 					}
 				}
 				traverseMap(outputMap);				
@@ -149,6 +154,10 @@ int main(int argc, char* argv[]){
 							outputMap["NODE"] = "";
 							outputMap["NAME"] = procPathROOT + " (Permission denied)";
 							break;
+						default:
+							// /proc/{pid} may die
+							continue;
+							break;
 					}
 				}
 				traverseMap(outputMap);	
@@ -193,6 +202,10 @@ int main(int argc, char* argv[]){
 							outputMap["TYPE"] = "unknown";
 							outputMap["NODE"] = "";
 							outputMap["NAME"] = procPathEXE + " (Permission denied)";
+							break;
+						default:
+							// /proc/{pid} may die
+							continue;
 							break;
 					}
 				}
@@ -253,13 +266,16 @@ int main(int argc, char* argv[]){
                             i = i+2;
                             traverseMap(outputMap);
                         }
-				    }
+				    }else{
+						// Exclude permission denied -> /proc/{pid} may die;
+						continue;
+					}
 
                 }else{
                     switch(errno){
                         // Permission denied -> Just Ignore
                         case EACCES: break;
-                        default: cout << "MEM other error\n"; break;
+                        default: continue; break;
                     }
                 }
 				/**********************************************************************/
@@ -327,7 +343,10 @@ int main(int argc, char* argv[]){
 									
 									// Mask judge aWord -> Append to outputMap["FD"]
 
-									outputMap["FD"] = dirp_fd->d_name + string("k"); //UNDO
+									outputMap["FD"] = dirp_fd->d_name + aWord; //UNDO
+								}else{
+									// maybe die
+									continue;
 								}
 								close(fdInfoFd);
                             	traverseMap(outputMap);
@@ -356,11 +375,14 @@ int main(int argc, char* argv[]){
 							outputMap["NAME"] = procPathFD + " (Permission denied)";
 							traverseMap(outputMap);
 							break;
-						case ENOENT:
-							cout << "Directory does not exist\n";
-							break;
+						
 						case ENOTDIR:
 							cout << procPathFD <<" is not a directory\n";
+							break;
+
+						case ENOENT:
+							// directory does not exist;
+							continue;
 							break;
 					}
 				}
@@ -372,8 +394,7 @@ int main(int argc, char* argv[]){
 			cout << "closeDir error\n";
 		}
 
-	}else{
-		// Can't access
+	}else{ //Can't access /proc/
 		switch(errno){
 			case EACCES:
 				cout << "Permission denied\n";

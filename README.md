@@ -1,7 +1,14 @@
 # lsofLike
 1102_UNIX_Programming Class HW1
 
-# Homework #1
+## Result Overview
+![](https://i.imgur.com/zzigKLy.png)
+without root permission
+
+![](https://i.imgur.com/v4zwxih.png)
+with root permission
+
+# Homework1 Spec.
 Advanced Programming in the UNIX Environment
 
 Due: March 21, 2021
